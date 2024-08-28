@@ -237,7 +237,7 @@ class Tapper:
                     if taps:
                         rocket = taps.get('rocket', {})
                         user_info = taps.get('user', {})
-                        logger.info(f"{self.session_name} | Tapped <m>{tap_count} / {1000}</m> | Distance: <m>{int(rocket.get('distance', 0))}</m>")
+                        logger.info(f"{self.session_name} | Tapped <m>{all_tap_count} / 1000</m> | Distance: <m>{int(rocket.get('distance', 0))}</m>")
                         sleep_time = random.randint(1, 3)
                         await asyncio.sleep(sleep_time)
             
