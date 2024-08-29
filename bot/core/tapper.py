@@ -197,57 +197,80 @@ class Tapper:
         init_data = await self.get_tg_web_data()
         
         while True:
-            info_data = await self.login(http_client=http_client, init_data=init_data)
-            if not info_data or not info_data.get('ok'):
-                logger.info(f"{self.session_name} | Login failed")
-                await asyncio.sleep(delay=1800)
-                continue
-            await asyncio.sleep(2)
+            try:
+                if http_client.closed:
+                    if proxy_conn:
+                        if not proxy_conn.closed:
+                            proxy_conn.close()
 
-            rocket = info_data.get('rocket', {})
-            user_info = info_data.get('user', {})
-            logger.info(f"{self.session_name} | 🚀 Logged in successfully")
-            last_boost_timestamp = int(rocket.get('last_boost_timestamp', time()))
-            current_time = int(time())
-            time_since_last_boost = current_time - last_boost_timestamp
-            
-            speed = speed_calc(user_info.get('referrals_count', 0), time_since_last_boost)
-            logger.info(f"{self.session_name} | Name: <m>{user_info.get('name')}</m> | Points: <m>{int(rocket.get('distance', 0))}</m> | Speed: <m>{speed}</m>")
-            
-            boost_attempts = int(rocket.get('boost_attempts', 0))
-            if last_boost_timestamp and boost_attempts:
-                if time_since_last_boost >= 3600 and boost_attempts < 7:
-                    logger.info(f"{self.session_name} | More than an hour since last boost and <m>{boost_attempts}</m> attempts available")
-                    boost = await self.boost(http_client=http_client, init_data=init_data)
-                    if boost:
-                        rocket = boost.get('rocket', {})
-                        user_info = boost.get('user', {})
-                        logger.info(f"{self.session_name} | <m>Boosted successfully</m>")
-                        await asyncio.sleep(3)
-            
-            if time_since_last_boost <= 3600:
-                all_tap_count = int(rocket.get('boost_taps', 0))
-                while all_tap_count < 1000:
-                    remaining_taps = 1000 - all_tap_count
-                    tap_count = min(random.randint(30, 60), remaining_taps)
-                    all_tap_count += tap_count
+                    proxy_conn = ProxyConnector().from_url(self.proxy) if self.proxy else None
+                    http_client = aiohttp.ClientSession(headers=headers, connector=proxy_conn)
+                    if settings.FAKE_USERAGENT:            
+                        http_client.headers['User-Agent'] = generate_random_user_agent(device_type='android', browser_type='chrome')  
+                info_data = await self.login(http_client=http_client, init_data=init_data)
+                if not info_data or not info_data.get('ok'):
+                    logger.info(f"{self.session_name} | Login failed")
+                    await asyncio.sleep(delay=1800)
+                    continue
+                await asyncio.sleep(2)
 
-                    taps = await self.tap(http_client=http_client, init_data=init_data, tap_count=tap_count)
-                    if taps:
-                        rocket = taps.get('rocket', {})
-                        user_info = taps.get('user', {})
-                        logger.info(f"{self.session_name} | Tapped <m>{all_tap_count} / 1000</m> | Distance: <m>{int(rocket.get('distance', 0))}</m>")
-                        sleep_time = random.randint(1, 3)
-                        await asyncio.sleep(sleep_time)
-            
-            
-            current_time = int(time())
-            last_boost_timestamp = rocket.get('last_boost_timestamp', current_time)
-            time_since_last_boost = max(0, current_time - last_boost_timestamp)
-            time_since_last_boost = min(3600, time_since_last_boost)
-            
-            logger.info(f"{self.session_name} | Sleep <m>{time_since_last_boost}s</m>")
-            await asyncio.sleep(delay=time_since_last_boost)
+                rocket = info_data.get('rocket', {})
+                user_info = info_data.get('user', {})
+                logger.info(f"{self.session_name} | 🚀 Logged in successfully")
+                last_boost_timestamp = int(rocket.get('last_boost_timestamp', time()))
+                current_time = int(time())
+                time_since_last_boost = current_time - last_boost_timestamp
+                
+                speed = speed_calc(user_info.get('referrals_count', 0), time_since_last_boost)
+                logger.info(f"{self.session_name} | Name: <m>{user_info.get('name')}</m> | Points: <m>{int(rocket.get('distance', 0))}</m> | Speed: <m>{speed}</m>")
+                
+                boost_attempts = int(rocket.get('boost_attempts', 0))
+                if last_boost_timestamp and boost_attempts:
+                    if time_since_last_boost >= 3600 and boost_attempts < 7:
+                        logger.info(f"{self.session_name} | More than an hour since last boost and <m>{boost_attempts}</m> attempts available")
+                        boost = await self.boost(http_client=http_client, init_data=init_data)
+                        if boost:
+                            rocket = boost.get('rocket', {})
+                            user_info = boost.get('user', {})
+                            logger.info(f"{self.session_name} | <m>Boosted successfully</m>")
+                            await asyncio.sleep(3)
+                
+                if time_since_last_boost <= 3600:
+                    all_tap_count = int(rocket.get('boost_taps', 0))
+                    while all_tap_count < 1000:
+                        remaining_taps = 1000 - all_tap_count
+                        tap_count = min(random.randint(30, 60), remaining_taps)
+                        all_tap_count += tap_count
+
+                        taps = await self.tap(http_client=http_client, init_data=init_data, tap_count=tap_count)
+                        if taps:
+                            rocket = taps.get('rocket', {})
+                            user_info = taps.get('user', {})
+                            logger.info(f"{self.session_name} | Tapped <m>{all_tap_count} / 1000</m> | Distance: <m>{int(rocket.get('distance', 0))}</m>")
+                            sleep_time = random.randint(1, 3)
+                            await asyncio.sleep(sleep_time)
+                
+                
+                current_time = int(time())
+                last_boost_timestamp = rocket.get('last_boost_timestamp', current_time)
+                time_since_last_boost = max(0, current_time - last_boost_timestamp)
+                time_since_last_boost = min(3600, time_since_last_boost)
+                
+                logger.info(f"{self.session_name} | Sleep <m>{time_since_last_boost}s</m>")
+                
+                await http_client.close()
+                if proxy_conn:
+                    if not proxy_conn.closed:
+                        proxy_conn.close()
+                await asyncio.sleep(delay=time_since_last_boost)
+            except InvalidSession as error:
+                raise error
+
+            except Exception as error:
+                logger.error(f"{self.session_name} | Unknown error: {error}")
+                await asyncio.sleep(delay=3)
+                logger.info(f'{self.session_name} | Sleep <m>600s</m>')
+                await asyncio.sleep(600)
             
             
             
