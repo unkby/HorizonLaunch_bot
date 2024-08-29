@@ -197,14 +197,13 @@ class Tapper:
         init_data = await self.get_tg_web_data()
         
         while True:
-            login = await self.login(http_client=http_client, init_data=init_data)
-            if not login or not login.get('ok'):
+            info_data = await self.login(http_client=http_client, init_data=init_data)
+            if not info_data or not info_data.get('ok'):
                 logger.info(f"{self.session_name} | Login failed")
                 await asyncio.sleep(delay=1800)
                 continue
             await asyncio.sleep(2)
-            info_data = await self.get_info(http_client=http_client, init_data=init_data)
-            
+
             rocket = info_data.get('rocket', {})
             user_info = info_data.get('user', {})
             logger.info(f"{self.session_name} | 🚀 Logged in successfully")
@@ -217,7 +216,7 @@ class Tapper:
             
             boost_attempts = int(rocket.get('boost_attempts', 0))
             if last_boost_timestamp and boost_attempts:
-                if time_since_last_boost > 3600 and boost_attempts > 0:
+                if time_since_last_boost >= 3600 and boost_attempts < 7:
                     logger.info(f"{self.session_name} | More than an hour since last boost and <m>{boost_attempts}</m> attempts available")
                     boost = await self.boost(http_client=http_client, init_data=init_data)
                     if boost:
