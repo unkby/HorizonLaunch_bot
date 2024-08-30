@@ -212,14 +212,14 @@ class Tapper:
                 current_time = int(time())
                 last_boost_timestamp = current_time if rocket.get('last_boost_timestamp') == 0 else rocket.get('last_boost_timestamp')
                 time_since_last_boost = max(0, current_time - last_boost_timestamp)
-                time_since_last_boost = 3600 - min(3600, time_since_last_boost)
+                time_since_last_boost = min(3600, time_since_last_boost)
                 
                 speed = speed_calc(user_info.get('referrals_count', 0), time_since_last_boost)
                 logger.info(f"{self.session_name} | Name: <m>{user_info.get('name')}</m> | Points: <m>{int(rocket.get('distance', 0))}</m> | Speed: <m>{speed}</m>")
                 
                 boost_attempts = int(rocket.get('boost_attempts', 0))
                 if user_info.get('referrals_count', 0) >= 1:
-                    logger.info(f"{self.session_name} | You have <m>{6-boost_attempts}</m> boosts. Next boost in <m>{round(time_since_last_boost / 60, 2)}</m> minutes")
+                    logger.info(f"{self.session_name} | You have <m>{6-boost_attempts}</m> boosts. Next boost in <m>{round((3600 - time_since_last_boost) / 60, 2)}</m> minutes")
                     if time_since_last_boost >= 3600 and boost_attempts <= 6:
                         boost = await self.boost(http_client=http_client)
                         if boost:
@@ -227,18 +227,18 @@ class Tapper:
                             current_time = int(time())
                             last_boost_timestamp = current_time if rocket.get('last_boost_timestamp') == 0 else rocket.get('last_boost_timestamp')
                             time_since_last_boost = max(0, current_time - last_boost_timestamp)
-                            time_since_last_boost = 3600 - min(3600, time_since_last_boost)
+                            time_since_last_boost = min(3600, time_since_last_boost)
                             logger.info(f"{self.session_name} | <m>Boosted successfully</m>")
                             await asyncio.sleep(3)
                     
-                    if time_since_last_boost <= 3600:
+                    if time_since_last_boost < 3600:
                         all_tap_count = int(rocket.get('boost_taps', 0))
                         while all_tap_count < 1000:
                             remaining_taps = 1000 - all_tap_count
                             tap_count = min(random.randint(30, 60), remaining_taps)
                             all_tap_count += tap_count
 
-                            taps = await self.tap(http_client=http_client, init_data=init_data, tap_count=tap_count)
+                            taps = await self.tap(http_client=http_client, tap_count=tap_count)
                             if taps:
                                 rocket = taps.get('rocket', {})
                                 logger.info(f"{self.session_name} | Tapped <m>{all_tap_count} / 1000</m> | Distance: <m>{int(rocket.get('distance', 0))}</m>")
