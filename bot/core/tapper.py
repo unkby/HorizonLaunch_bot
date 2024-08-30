@@ -65,8 +65,7 @@ class Tapper:
         self.tg_client = tg_client
         self.session_name = tg_client.name
         self.proxy = proxy
-        self.tg_web_data = None
-        self.tg_client_id = 0
+        self.init_data = None
 
     async def get_tg_web_data(self) -> str:
         
@@ -129,9 +128,6 @@ class Tapper:
             init_data = (f"user={user_data_encoded}&chat_instance={chat_instance}&chat_type={chat_type}&"
                          f"start_param={start_param}&auth_date={auth_date}&hash={hash_value}")
 
-            me = await self.tg_client.get_me()
-            self.tg_client_id = me.id
-            
             if self.tg_client.is_connected:
                 await self.tg_client.disconnect()
 
@@ -154,28 +150,23 @@ class Tapper:
             return response_json
     
     @error_handler
-    async def login(self, http_client, init_data):
-        return await self.make_request(http_client, 'POST', endpoint="/auth", json={'auth': init_data})
+    async def login(self, http_client):
+        return await self.make_request(http_client, 'POST', endpoint="/auth", json={'auth': self.init_data})
     
     @error_handler
-    async def get_info(self, http_client, init_data):
-        return await self.make_request(http_client, 'POST', endpoint=f"/tap", json={'auth': init_data})
-       
+    async def boost(self, http_client):
+        return await self.make_request(http_client, 'POST', endpoint="/tap?boost=true", json={'auth': self.init_data})
     
     @error_handler
-    async def boost(self, http_client, init_data):
-        return await self.make_request(http_client, 'POST', endpoint="/tap?boost=true", json={'auth': init_data})
-    
-    @error_handler
-    async def tap(self, http_client, init_data, tap_count):
-        return await self.make_request(http_client, 'POST', endpoint=f"/taps?count={tap_count}", json={'auth': init_data})
+    async def tap(self, http_client, tap_count):
+        return await self.make_request(http_client, 'POST', endpoint=f"/taps?count={tap_count}", json={'auth': self.init_data})
         
         
     @error_handler
     async def check_proxy(self, http_client: aiohttp.ClientSession) -> None:
         response = await self.make_request(http_client, 'GET', url='https://httpbin.org/ip', timeout=aiohttp.ClientTimeout(5))
         ip = response.get('origin')
-        logger.info(f"{self.session_name} | Proxy IP: <lc>{ip}<lc>")
+        logger.info(f"{self.session_name} | Proxy IP: <m>{ip}</m>")
         
         
     
@@ -194,7 +185,7 @@ class Tapper:
         if settings.FAKE_USERAGENT:            
             http_client.headers['User-Agent'] = generate_random_user_agent(device_type='android', browser_type='chrome')
 
-        init_data = await self.get_tg_web_data()
+        self.init_data = await self.get_tg_web_data()
         
         while True:
             try:
@@ -207,7 +198,7 @@ class Tapper:
                     http_client = aiohttp.ClientSession(headers=headers, connector=proxy_conn)
                     if settings.FAKE_USERAGENT:            
                         http_client.headers['User-Agent'] = generate_random_user_agent(device_type='android', browser_type='chrome')  
-                info_data = await self.login(http_client=http_client, init_data=init_data)
+                info_data = await self.login(http_client=http_client)
                 if not info_data or not info_data.get('ok'):
                     logger.info(f"{self.session_name} | Login failed")
                     await asyncio.sleep(delay=1800)
@@ -217,44 +208,48 @@ class Tapper:
                 rocket = info_data.get('rocket', {})
                 user_info = info_data.get('user', {})
                 logger.info(f"{self.session_name} | 🚀 Logged in successfully")
-                last_boost_timestamp = int(rocket.get('last_boost_timestamp', time()))
+                
                 current_time = int(time())
-                time_since_last_boost = current_time - last_boost_timestamp
+                last_boost_timestamp = current_time if rocket.get('last_boost_timestamp') == 0 else rocket.get('last_boost_timestamp')
+                time_since_last_boost = max(0, current_time - last_boost_timestamp)
+                time_since_last_boost = 3600 - min(3600, time_since_last_boost)
                 
                 speed = speed_calc(user_info.get('referrals_count', 0), time_since_last_boost)
                 logger.info(f"{self.session_name} | Name: <m>{user_info.get('name')}</m> | Points: <m>{int(rocket.get('distance', 0))}</m> | Speed: <m>{speed}</m>")
                 
                 boost_attempts = int(rocket.get('boost_attempts', 0))
-                if last_boost_timestamp and boost_attempts:
-                    if time_since_last_boost >= 3600 and boost_attempts < 7:
-                        logger.info(f"{self.session_name} | More than an hour since last boost and <m>{boost_attempts}</m> attempts available")
-                        boost = await self.boost(http_client=http_client, init_data=init_data)
+                if user_info.get('referrals_count', 0) >= 1:
+                    logger.info(f"{self.session_name} | You have <m>{6-boost_attempts}</m> boosts. Next boost in <m>{round(time_since_last_boost / 60, 2)}</m> minutes")
+                    if time_since_last_boost >= 3600 and boost_attempts <= 6:
+                        boost = await self.boost(http_client=http_client)
                         if boost:
                             rocket = boost.get('rocket', {})
-                            user_info = boost.get('user', {})
+                            current_time = int(time())
+                            last_boost_timestamp = current_time if rocket.get('last_boost_timestamp') == 0 else rocket.get('last_boost_timestamp')
+                            time_since_last_boost = max(0, current_time - last_boost_timestamp)
+                            time_since_last_boost = 3600 - min(3600, time_since_last_boost)
                             logger.info(f"{self.session_name} | <m>Boosted successfully</m>")
                             await asyncio.sleep(3)
-                
-                if time_since_last_boost <= 3600:
-                    all_tap_count = int(rocket.get('boost_taps', 0))
-                    while all_tap_count < 1000:
-                        remaining_taps = 1000 - all_tap_count
-                        tap_count = min(random.randint(30, 60), remaining_taps)
-                        all_tap_count += tap_count
+                    
+                    if time_since_last_boost <= 3600:
+                        all_tap_count = int(rocket.get('boost_taps', 0))
+                        while all_tap_count < 1000:
+                            remaining_taps = 1000 - all_tap_count
+                            tap_count = min(random.randint(30, 60), remaining_taps)
+                            all_tap_count += tap_count
 
-                        taps = await self.tap(http_client=http_client, init_data=init_data, tap_count=tap_count)
-                        if taps:
-                            rocket = taps.get('rocket', {})
-                            user_info = taps.get('user', {})
-                            logger.info(f"{self.session_name} | Tapped <m>{all_tap_count} / 1000</m> | Distance: <m>{int(rocket.get('distance', 0))}</m>")
-                            sleep_time = random.randint(1, 3)
-                            await asyncio.sleep(sleep_time)
+                            taps = await self.tap(http_client=http_client, init_data=init_data, tap_count=tap_count)
+                            if taps:
+                                rocket = taps.get('rocket', {})
+                                logger.info(f"{self.session_name} | Tapped <m>{all_tap_count} / 1000</m> | Distance: <m>{int(rocket.get('distance', 0))}</m>")
+                                sleep_time = random.randint(1, 3)
+                                await asyncio.sleep(sleep_time)
                 
                 
                 current_time = int(time())
-                last_boost_timestamp = rocket.get('last_boost_timestamp', current_time)
+                last_boost_timestamp = current_time if rocket.get('last_boost_timestamp') == 0 else rocket.get('last_boost_timestamp')
                 time_since_last_boost = max(0, current_time - last_boost_timestamp)
-                time_since_last_boost = min(3600, time_since_last_boost)
+                time_since_last_boost = 3600 - min(3600, time_since_last_boost)
                 
                 logger.info(f"{self.session_name} | Sleep <m>{time_since_last_boost}s</m>")
                 
