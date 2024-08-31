@@ -254,7 +254,7 @@ class Tapper:
                 if proxy_conn:
                     if not proxy_conn.closed:
                         proxy_conn.close()
-                await asyncio.sleep(delay=time_since_last_boost)
+                await asyncio.sleep(delay=sleep_time)
             except InvalidSession as error:
                 raise error
 
