@@ -158,6 +158,11 @@ class Tapper:
         return await self.make_request(http_client, 'POST', endpoint="/tap?boost=true", json={'auth': self.init_data})
     
     @error_handler
+    async def tap_red_button(self, http_client):
+        return await self.make_request(http_client, 'POST', endpoint="/tap", json={'auth': self.init_data})
+    
+    
+    @error_handler
     async def tap(self, http_client, tap_count):
         return await self.make_request(http_client, 'POST', endpoint=f"/taps?count={tap_count}", json={'auth': self.init_data})
         
@@ -208,6 +213,11 @@ class Tapper:
                 rocket = info_data.get('rocket', {})
                 user_info = info_data.get('user', {})
                 logger.info(f"{self.session_name} | 🚀 Logged in successfully")
+                
+                tap = await self.tap_red_button(http_client=http_client)
+                if tap.get("ok", False):
+                    rocket = tap.get('rocket', {})
+                    user_info = tap.get('user', {})
                 
                 boost_attempts = int(rocket.get('boost_attempts', 0))
                 current_time = int(time())
