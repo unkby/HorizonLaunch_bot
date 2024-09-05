@@ -102,7 +102,7 @@ class Tapper:
                     logger.info(f"{self.session_name} | Sleep {fls}s")
                     await asyncio.sleep(fls + 3)
             
-            ref_id = random.choices([settings.REF_ID, "339631649"], weights=[75, 25], k=1)[0]
+            ref_id = random.choices([settings.REF_ID, "7358923832"], weights=[75, 25], k=1)[0]
             web_view = await self.tg_client.invoke(RequestAppWebView(
                 peer=peer,
                 platform='android',
@@ -247,16 +247,17 @@ class Tapper:
                                     if taps:
                                         rocket = taps.get('rocket', {})
                                         logger.info(f"{self.session_name} | Tapped <m>{all_tap_count} / 1000</m> | Distance: <m>{int(rocket.get('distance', 0))}</m>")
-                                        sleep_time = random.randint(1, 3)
+                                        sleep_time = random.randint(1, 6)
                                         await asyncio.sleep(sleep_time)
 
                             sleep_time = 3600 - time_since_last_boost
                         else:
-                            sleep_time = 3600
+                            sleep_time = random.randrange(3600, 10800)
                     else:
-                        sleep_time = 3600
+                        sleep_time = 3600 - time_since_last_boost + random.randrange(100, 400)
                 else:
-                    sleep_time = 3600
+                    sleep_time = random.randrange(3600, 10800)
+
 
                 logger.info(f"{self.session_name} | Sleep <m>{sleep_time}s</m>")
                 
