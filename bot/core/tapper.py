@@ -144,10 +144,9 @@ class Tapper:
     @error_handler
     async def make_request(self, http_client, method, endpoint=None, url=None, **kwargs):
         full_url = url or f"https://api.eventhorizongame.xyz{endpoint or ''}"
-        async with http_client.request(method, full_url, **kwargs) as response:
-            response.raise_for_status()
-            response_json = await response.json()
-            return response_json
+        response = await http_client.request(method, full_url, **kwargs)
+        response.raise_for_status()
+        return await response.json()
     
     @error_handler
     async def login(self, http_client):
@@ -170,7 +169,7 @@ class Tapper:
     @error_handler
     async def check_proxy(self, http_client: aiohttp.ClientSession) -> None:
         response = await self.make_request(http_client, 'GET', url='https://httpbin.org/ip', timeout=aiohttp.ClientTimeout(5))
-        ip = response.get('origin')
+        ip = response.get('origin', 'Site is not available')
         logger.info(f"{self.session_name} | Proxy IP: <m>{ip}</m>")
         
         
